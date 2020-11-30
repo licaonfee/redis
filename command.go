@@ -337,6 +337,22 @@ func sliceParser(rd *proto.Reader, n int64) (interface{}, error) {
 		}
 		vals[i] = v
 	}
+	// Low performance: this is a border case
+	// https://github.com/redis/redis/issues/2960
+	for rd.Buffered() > 0 {
+		v, err := rd.ReadArrayReply(sliceParser)
+		if err != nil {
+			if err == Nil {
+				vals = append(vals, nil)
+				continue
+			}
+		}
+		if err, ok := err.(proto.RedisError); ok {
+			vals = append(vals, err)
+			continue
+		}
+		vals = append(vals, v)
+	}
 	return vals, nil
 }
 
